@@ -1,0 +1,396 @@
+# Translator Prototype - Project Checkpoint 4
+
+## Domain & Problem
+StockDSL is a domain-specific language for expressing rule-based trading strategies in a simple form. The translator compiles DSL inputs to Python backtest scripts and contains indicator computation. This reduces boilerplate and makes strategies easier to read than hand-written Python.
+
+## Visitor Implementation
+
+### Visit Methods
+We implemented `visit` methods that correspond to specific rules in our DSL's grammar.
+Each method converts DSL constructs into Python code fragments.
+
+### Code Generation
+The Code is generated as the tree is traversed, systematically building Python scripts. It stores variable names from the DSL's input that correspond to things such as the strategy name, stock symbols, initial capital, and date ranges. Then it uses python if statements to handle the core IF THEN rules of the DSL. It also produces Python boilerplate using libraries installed.
+
+---
+
+## Translator Testing on Trivial Inputs
+### Example: Breakout
+**Input:**
+```
+// --- Configuration ---
+symbols: AAPL, GOOG
+timeframe: daily
+// --- Trading Rules ---
+if price(AAPL) > 150 and volume(AAPL) > 5000000 {
+buy AAPL
+}
+if rsi(AAPL) < 30 {
+buy AAPL
+}
+}
+```
+**Output:**
+![Breakout output](breakout.png)
+---
+
+### Invalid Indicator
+**Input:**
+```
+strategy "Invalid Indicator Strategy" {
+symbols: MSFT
+
+if macd_cross("MSFT") {
+buy MSFT
+}
+}
+```
+**Output:**
+![Invalid Indicator](invalid_indic.png)
+---
+
+
+### Missing Quote
+**Input:**
+```
+if price("AAPL") > 150 {
+buy "AAPL"
+}
+}
+```
+**Output:**
+![missing quote output](invalid_quote.png)
+
+--
+### Wrong Symbol
+**Input:**
+```
+if price("AAPL") > 150 {
+buy "AAPL"
+}
+}
+```
+**Output:**
+![invalid symbol output](invalid_symbol.png)
+--
+
+## Translator Testing on Non-Trivial Inputs
+### Golden Cross
+**Input:**
+```
+symbols: TSLA
+timeframe: daily
+if sma(TSLA, 50) > sma(TSLA, 200) {
+buy TSLA
+}
+
+if sma(TSLA, 50) < sma(TSLA, 200) {
+sell TSLA
+}
+}
+```
+**Output:**
+![golden cross output](golden.png)
+
+### Crossover
+**Input:**
+```
+symbols: TSLA
+timeframe: daily
+
+// A function call can be a condition by itself
+if crossover(sma(TSLA, 50), sma(TSLA, 200)) {
+buy TSLA
+}
+
+// Sell when the opposite crossover happens
+if crossover(sma(TSLA, 200), sma(TSLA, 50)) {
+sell TSLA
+}
+}
+```
+**Output:**
+![crossover output](crossover.png)
+
+### Example DSL
+**Input**
+```
+use "mean_reversion"
+symbols: AAPL, MSFT, TSLA
+capital: $10000
+risk_per_trade: 1%
+timeframe: daily
+period: "2023-01-01" to "2024-01-01"
+
+if RSI < 30 and SMA(50) > SMA(200) {
+buy AAPL
+buy MSFT
+buy TSLA
+}
+
+if RSI > 70 or zscore < -2 {
+sell AAPL
+sell MSFT
+sell TSLA
+}
+}
+```
+**Output**
+![example output](example.png)
+
+### Oversold
+**Input**
+```
+strategy "Reversal Entry" {
+use "momentum_core"
+symbols: NFLX, DIS
+capital: $18000
+risk_per_trade: 1%
+timeframe: weekly
+period: "2023-01-01" to "2024-01-01"
+
+if sma(NFLX, 50) < sma(NFLX, 200) and rsi(NFLX) < 30 {
+buy NFLX
+}
+
+if zscore(price(DIS)) > 2 and rsi(DIS) > 70 {
+sell DIS
+}
+}
+```
+
+**Output**
+![oversold output](oversold.png)
+
+### Reverse
+**Input**
+```
+use "stat_package"
+symbols: NVDA, AMD
+capital: $12000
+risk_per_trade: 2%
+timeframe: daily
+period: "2022-06-01" to "2023-06-01"
+
+if rsi(NVDA) < 25 and zscore(price(NVDA)) < -2 {
+buy NVDA
+}
+
+if rsi(AMD) > 75 or zscore(price(AMD)) > 2 {
+sell AMD
+}
+}
+```
+
+**Output**
+![reversal output](reversal.png)
+
+### RSI with Price Filter
+**Input:**
+```
+strategy "RSI with Price Filter" {
+symbols: AAPL
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+// Buy if RSI is low and price is below 150
+if rsi < 30 and close < 150 {
+buy AAPL
+}
+
+// Sell if RSI is high or price above 170
+if rsi > 70 or close > 170 {
+sell AAPL
+}
+}
+```
+**Explanation:**
+Buys AAPL when it’s oversold (RSI < 30). Sells when it’s overbought (RSI > 70)
+
+**Output**
+![rsi spike output #1](rsi_spike1.png)
+![rsi spike ouput #2](rsi_spike2.png)
+
+### Monthly Trading
+**Input:**
+```
+strategy "monthly_trading" {
+symbols: META
+capital: $15000
+timeframe: monthly
+period: "2020-01-01" to "2024-01-01"
+
+if sma(META, 50) > sma(META, 200) and rsi > 50 {
+buy META
+}
+
+if sma(META, 50) < sma(META, 200) or rsi < 45 {
+sell META
+}
+```
+
+**Explanation:**
+This strategy combines a trend filter with a momentum check on the monthly chart. It looks to enter a position when the 50-period SMA is above the 200-period SMA, indicating a clear uptrend, and the RSI is above 50, showing strength in momentum. It exits when the 50-period SMA drops below the 200-period SMA, pointing to weakening momentum.
+
+**Output**
+![monthly trading output #1](monthly_trading.png)
+![monthly trading output #2](monthly_trading2.png)
+
+### Mean Reversion in Uptrend
+**Input:**
+```
+// Buy dips only when long-term uptrend holds; sell on snap-back or overbought.
+strategy "MSFT Mean Reversion in Uptrend" {
+symbols: MSFT
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+// entering above 200SMA (long-term trend up)
+if (zscore(price) < -1 and price > sma(MSFT, 200)) {
+buy MSFT
+}
+
+// exiting when trend fails
+if (zscore(price) > 0.5) or (price < sma(MSFT, 200)) {
+sell MSFT
+}
+}
+```
+
+**Explanation:**
+Buys MSFT when in a long-term uptrend (price above 200 SMA) but has pulled back sharply (a negative z-score). It sells when the z-score is above 0.5 or drops below the 200 SMA, indicating the uptrend may be over.
+
+**Output**
+![MSFT Uptrend Output](MSFT_uptrend.png)
+
+### No Trade
+**Input:**
+```
+// selling on overbought/trend failure.
+strategy "no_trade" {
+symbols: AAPL
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+if (rsi > 55 and price > sma(AAPL, 50)) or (zscore(price) > 1) {
+buy AAPL
+}
+
+// exiting on weak z-score
+if (rsi > 75) or (price < sma(AAPL, 50) and zscore(price) < -0.5) {
+sell AAPL
+}
+}
+```
+**Explanation:**
+This strategy buys AAPL when momentum is strong or when the z-score shows unusual strength. (high)
+
+**Output**
+![No-trade Output #1](no_trade.png)
+![No-trade Output #2](no_trade2.png)
+
+
+### NVIDIA/AMD Rotation
+**Input:**
+```
+// alternating between the stronger of NVDA/AMD
+strategy "nvda_amd_rotation" {
+symbols: NVDA, AMD
+capital: $12000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+// favor NVDA when stronger
+if (rsi(NVDA) > rsi(AMD) and sma(NVDA, 50) > sma(NVDA, 200)) or (zscore(price(NVDA)) > 1) {
+buy NVDA
+sell AMD
+}
+
+// favor AMD when strogner
+if (rsi(AMD) > rsi(NVDA) and sma(AMD, 50) > sma(AMD, 200)) or (zscore(price(AMD)) > 1) {
+buy AMD
+sell NVDA
+}
+}
+```
+
+**Explanation:**
+This strategy switches between NVDA and AMD depending on which shows more strength.in
+
+**Output**
+![NVDA/AMD Rotation](nvda_amd.png)
+
+### Invalid: Quoted Symbols Inside Functions
+**Input:**
+```
+strategy "SMA Crossover Bad Quotes" {
+symbols: "AAPL", "MSFT"
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+if sma("AAPL", 50) > sma("AAPL", 200) {
+buy "AAPL"
+}
+
+if rsi("MSFT") > 70 {
+sell "MSFT"
+}
+}
+```
+**Explanation:**
+Fails to parse because `"AAPL"` and `"MSFT"` are `STRING` tokens, but the grammar needs `SYMBOL` tokens in function parameters.
+
+**Output**
+![Invalid Quoted Symbol](invalidQuoteSymbol.png)
+
+### Invalid: Incomplete Comparison
+**Input:**
+```
+strategy "Incomplete Compare" {
+symbols: AAPL
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+if rsi > 30 and price > {
+buy AAPL
+}
+}
+```
+**Output**
+![Incomplete Compare](invalidCompare.png)
+
+### Invalid: Unbalanced Parentheses
+**Input:**
+```
+// Missing closing parenthesis
+strategy "Unbalanced Parens" {
+symbols: AAPL
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+if (rsi < 30 and price < 150 {
+buy AAPL
+}
+}
+```
+
+**Output**
+![Unbalanced Parens](unbalanced.png)
+
+
+
+
+
+
+<span class="small mono">Last updated: 2025-08-14</span>
+<script src="https://casual-effects.com/markdeep/latest/markdeep.min.js"></script>
+<script>window.alreadyProcessedMarkdownThisDocument || (document.body.setAttribute('data-markdeep-options','{"tocStyle":"short"}'), markdeepOptions={tocStyle:"short"});</script>
+
+
+

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockDSL Project Readme</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 960px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background-color: #fdfdfd;
+        }
+        h1, h2, h3 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 40px;
+        }
+        h1 {
+            font-size: 2.5em;
+        }
+        h2 {
+            font-size: 2em;
+        }
+        code {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            background-color: #f6f8fa;
+            padding: .2em .4em;
+            margin: 0;
+            font-size: 85%;
+            border-radius: 6px;
+        }
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            overflow: auto;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        pre code {
+            padding: 0;
+            margin: 0;
+            font-size: 100%;
+            background-color: transparent;
+        }
+        blockquote {
+            border-left: 5px solid #ccc;
+            padding-left: 15px;
+            color: #666;
+            margin-left: 0;
+        }
+        .comparison-container {
+            display: flex;
+            gap: 20px;
+        }
+        .comparison-box {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 0 15px;
+            background: #fff;
+        }
+        .team-member {
+            margin-bottom: 15px;
+        }
+        .team-member strong {
+            display: inline-block;
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>StockDSL: A Language for Simple Trading</h1>
+<p>
+    <strong>StockDSL</strong> is a Domain-Specific Language designed to make writing/testing trading strategies intuitive. By abstracting the code required to fetch data, track portfolios, and backtest, it allows the user to focus solely on the trading logic.
+</p>
+<p>
+    Our compiler built with Java and ANTLR4 translates StockDSL strategies into Python backtesting scripts.
+</p>
+
+<hr>
+
+<h2>Problem</h2>
+<p>
+    Implementing trading strategies in Python requires many steps: handling API calls for data, portfolio management, creating the backtesting loop. This often takes away from the core strategy logic, making strategies harder to implement.
+</p>
+
+<h3>Solution</h3>
+<p>
+    StockDSL removes this complexity. Below is a comparison of a simple "Mean Reversion" strategy coded in StockDSL compared to Python.
+</p>
+
+<div class="comparison-container">
+    <div class="comparison-box">
+        <h3>StockDSL (SMA)</h3>
+        <pre><code>strategy "Simple Mean Reversion" {
+    symbols: AAPL
+    capital: $10000
+    period: "2023-01-01" to "2024-01-01"
+
+    if RSI < 30 {
+        buy AAPL
+    }
+
+    if RSI > 70 {
+        sell AAPL
+    }
+}</code></pre>
+    </div>
+    <div class="comparison-box">
+        <h3>Python Equivalent (SMA)</h3>
+        <pre><code>import yahooquery as yq
+        import pandas_ta as ta
+
+        # setup
+        symbol = "AAPL"
+        start_date = "2023-01-01"
+        end_date = "2024-01-01"
+        capital = 10000.0
+        positions = {}
+
+        # fetching data
+        ticker = yq.Ticker(symbol)
+        df = ticker.history(start=start_date, end=end-date)
+        df = df.loc[symbol]
+
+        # making indicators
+        df['RSI_14'] = ta.rsi(df['close'], length=14)
+
+        # backtesting
+        for i in range(len(df)):
+            price = df['close'].iloc[i]
+            rsi = df['RSI_14'].iloc[i]
+
+
+            if rsi < 30:
+                if capital >= price:
+                    capital -= price
+                    positions[symbol] = positions.get(symbol, 0) + 1
+                    print(f"BOUGHT {symbol} @ {price:.2f}")
+
+            if rsi > 70:
+                if positions.get(symbol, 0) > 0:
+                    capital += price
+                    positions[symbol] -= 1
+                    print(f"SOLD {symbol} @ {price:.2f}")
+
+        # results
+        print(f="\nFinal Capital: ${capital:.2f}")
+        print("Final Positions:", positions)
+        </code></pre>
+    </div>
+</div>
+<blockquote>
+    The Python code is cluttered with setup logic. StockDSL expresses the core trading ideas directly, handling all the excess work automatically.
+</blockquote>
+
+<hr>
+
+<h2>Files</h2>
+<ol>
+    <li>The structure of our language is defined in a grammar file is (`StockDSL.g4`). ANTLR4 uses this grammar to parse a `.dsl` file and generate a parsed tree.</li>
+    <li> The `Translator.java` class uses the visitors to walk the parse tree. When each node is visited, like a condition or rule, it translates each logic piece directly to Python code.</li>
+    <li> The translator then takes the translated logic and combines it with a pre-built Python code template for managing portfolios, backtesting, and fetching data. The final output is a Python script.</li>
+</ol>
+
+<hr>
+
+<h2>Run StockDSL</h2>
+<ol>
+    <li>Create a new file (ex: my_strategy.dsl) and write your trading strategy in StockDSL.</li>
+    <li> Run the Java program.
+        <pre><code>java -jar stockdsl-compiler.jar my_strategy.dsl</code></pre>
+    </li>
+    <li> Compiler will make the Python script to run backtesting on.
+        <pre><code>python generated_strategy.py</code></pre>
+    </li>
+</ol>
+
+<hr>
+
+<h2>Examples</h2>
+
+<h3>Golden Cross Strategy</h3>
+<blockquote>
+    A "Golden Cross" is when occurs when the short-term moving average crosses above the long-term moving average, highlighting a potential uptrend.
+</blockquote>
+<pre><code>strategy "Golden Cross" {
+    symbols: TSLA
+    capital: $25000
+    period: "2022-01-01" to "2024-01-01"
+
+    // buying on golden cross
+    if crossover(SMA(50), SMA(200)) {
+        buy TSLA
+    }
+
+    // selling on the opposite
+    if crossover(SMA(200), SMA(50)) {
+        sell TSLA
+    }
+}</code></pre>
+<p>The DSL will make a python script to get TSLA data, calculate the 50-day and 200-day SMA's, and make trades when one crosses the other.</p>
+
+
+## Translator Testing on Trivial Inputs
+### Example: Breakout
+**Input:**
+```
+// --- Configuration ---
+symbols: AAPL, GOOG
+timeframe: daily
+// --- Trading Rules ---
+if price(AAPL) > 150 and volume(AAPL) > 5000000 {
+buy AAPL
+}
+if rsi(AAPL) < 30 {
+buy AAPL
+}
+}
+```
+**Output:**
+![Breakout output](breakout.png)
+---
+
+### Invalid Indicator
+**Input:**
+```
+strategy "Invalid Indicator Strategy" {
+symbols: MSFT
+
+if macd_cross("MSFT") {
+buy MSFT
+}
+}
+```
+**Output:**
+![Invalid Indicator](invalid_indic.png)
+---
+
+
+### Missing Quote
+**Input:**
+```
+if price("AAPL") > 150 {
+buy "AAPL"
+}
+}
+```
+**Output:**
+![missing quote output](invalid_quote.png)
+
+--
+### Wrong Symbol
+**Input:**
+```
+if price("AAPL") > 150 {
+buy "AAPL"
+}
+}
+```
+**Output:**
+![invalid symbol output](invalid_symbol.png)
+--
+
+## Translator Testing on Non-Trivial Inputs
+### Golden Cross
+**Input:**
+```
+symbols: TSLA
+timeframe: daily
+if sma(TSLA, 50) > sma(TSLA, 200) {
+buy TSLA
+}
+
+if sma(TSLA, 50) < sma(TSLA, 200) {
+sell TSLA
+}
+}
+```
+**Output:**
+![golden cross output](golden.png)
+
+### Crossover
+**Input:**
+```
+symbols: TSLA
+timeframe: daily
+
+// A function call can be a condition by itself
+if crossover(sma(TSLA, 50), sma(TSLA, 200)) {
+buy TSLA
+}
+
+// Sell when the opposite crossover happens
+if crossover(sma(TSLA, 200), sma(TSLA, 50)) {
+sell TSLA
+}
+}
+```
+**Output:**
+![crossover output](crossover.png)
+
+### Example DSL
+**Input**
+```
+use "mean_reversion"
+symbols: AAPL, MSFT, TSLA
+capital: $10000
+risk_per_trade: 1%
+timeframe: daily
+period: "2023-01-01" to "2024-01-01"
+
+if RSI < 30 and SMA(50) > SMA(200) {
+buy AAPL
+buy MSFT
+buy TSLA
+}
+
+if RSI > 70 or zscore < -2 {
+sell AAPL
+sell MSFT
+sell TSLA
+}
+}
+```
+**Output**
+![example output](example.png)
+
+### Oversold
+**Input**
+```
+strategy "Reversal Entry" {
+use "momentum_core"
+symbols: NFLX, DIS
+capital: $18000
+risk_per_trade: 1%
+timeframe: weekly
+period: "2023-01-01" to "2024-01-01"
+
+if sma(NFLX, 50) < sma(NFLX, 200) and rsi(NFLX) < 30 {
+buy NFLX
+}
+
+if zscore(price(DIS)) > 2 and rsi(DIS) > 70 {
+sell DIS
+}
+}
+```
+
+**Output**
+![oversold output](oversold.png)
+
+### Reverse
+**Input**
+```
+use "stat_package"
+symbols: NVDA, AMD
+capital: $12000
+risk_per_trade: 2%
+timeframe: daily
+period: "2022-06-01" to "2023-06-01"
+
+if rsi(NVDA) < 25 and zscore(price(NVDA)) < -2 {
+buy NVDA
+}
+
+if rsi(AMD) > 75 or zscore(price(AMD)) > 2 {
+sell AMD
+}
+}
+```
+
+**Output**
+![reversal output](reversal.png)
+
+### RSI with Price Filter
+**Input:**
+```
+strategy "RSI with Price Filter" {
+symbols: AAPL
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+// Buy if RSI is low and price is below 150
+if rsi < 30 and close < 150 {
+buy AAPL
+}
+
+// Sell if RSI is high or price above 170
+if rsi > 70 or close > 170 {
+sell AAPL
+}
+}
+```
+**Explanation:**
+Buys AAPL when it’s oversold (RSI < 30). Sells when it’s overbought (RSI > 70)
+
+**Output**
+![rsi spike output #1](rsi_spike1.png)
+![rsi spike ouput #2](rsi_spike2.png)
+
+### Monthly Trading
+**Input:**
+```
+strategy "monthly_trading" {
+symbols: META
+capital: $15000
+timeframe: monthly
+period: "2020-01-01" to "2024-01-01"
+
+if sma(META, 50) > sma(META, 200) and rsi > 50 {
+buy META
+}
+
+if sma(META, 50) < sma(META, 200) or rsi < 45 {
+sell META
+}
+```
+
+**Explanation:**
+This strategy combines a trend filter with a momentum check on the monthly chart. It looks to enter a position when the 50-period SMA is above the 200-period SMA, indicating a clear uptrend, and the RSI is above 50, showing strength in momentum. It exits when the 50-period SMA drops below the 200-period SMA, pointing to weakening momentum.
+
+**Output**
+![monthly trading output #1](monthly_trading.png)
+![monthly trading output #2](monthly_trading2.png)
+
+### Mean Reversion in Uptrend
+**Input:**
+```
+// Buy dips only when long-term uptrend holds; sell on snap-back or overbought.
+strategy "MSFT Mean Reversion in Uptrend" {
+symbols: MSFT
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+// entering above 200SMA (long-term trend up)
+if (zscore(price) < -1 and price > sma(MSFT, 200)) {
+buy MSFT
+}
+
+// exiting when trend fails
+if (zscore(price) > 0.5) or (price < sma(MSFT, 200)) {
+sell MSFT
+}
+}
+```
+
+**Explanation:**
+Buys MSFT when in a long-term uptrend (price above 200 SMA) but has pulled back sharply (a negative z-score). It sells when the z-score is above 0.5 or drops below the 200 SMA, indicating the uptrend may be over.
+
+**Output**
+![MSFT Uptrend Output](MSFT_uptrend.png)
+
+### No Trade
+**Input:**
+```
+// selling on overbought/trend failure.
+strategy "no_trade" {
+symbols: AAPL
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+if (rsi > 55 and price > sma(AAPL, 50)) or (zscore(price) > 1) {
+buy AAPL
+}
+
+// exiting on weak z-score
+if (rsi > 75) or (price < sma(AAPL, 50) and zscore(price) < -0.5) {
+sell AAPL
+}
+}
+```
+**Explanation:**
+This strategy buys AAPL when momentum is strong or when the z-score shows unusual strength. (high)
+
+**Output**
+![No-trade Output #1](no_trade.png)
+![No-trade Output #2](no_trade2.png)
+
+
+### NVIDIA/AMD Rotation
+**Input:**
+```
+// alternating between the stronger of NVDA/AMD
+strategy "nvda_amd_rotation" {
+symbols: NVDA, AMD
+capital: $12000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+// favor NVDA when stronger
+if (rsi(NVDA) > rsi(AMD) and sma(NVDA, 50) > sma(NVDA, 200)) or (zscore(price(NVDA)) > 1) {
+buy NVDA
+sell AMD
+}
+
+// favor AMD when strogner
+if (rsi(AMD) > rsi(NVDA) and sma(AMD, 50) > sma(AMD, 200)) or (zscore(price(AMD)) > 1) {
+buy AMD
+sell NVDA
+}
+}
+```
+
+**Explanation:**
+This strategy switches between NVDA and AMD depending on which shows more strength.in
+
+**Output**
+![NVDA/AMD Rotation](nvda_amd.png)
+
+### Invalid: Quoted Symbols Inside Functions
+**Input:**
+```
+strategy "SMA Crossover Bad Quotes" {
+symbols: "AAPL", "MSFT"
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+if sma("AAPL", 50) > sma("AAPL", 200) {
+buy "AAPL"
+}
+
+if rsi("MSFT") > 70 {
+sell "MSFT"
+}
+}
+```
+**Explanation:**
+Fails to parse because `"AAPL"` and `"MSFT"` are `STRING` tokens, but the grammar needs `SYMBOL` tokens in function parameters.
+
+**Output**
+![Invalid Quoted Symbol](invalidQuoteSymbol.png)
+
+### Invalid: Incomplete Comparison
+**Input:**
+```
+strategy "Incomplete Compare" {
+symbols: AAPL
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+if rsi > 30 and price > {
+buy AAPL
+}
+}
+```
+**Output**
+![Incomplete Compare](invalidCompare.png)
+
+### Invalid: Unbalanced Parentheses
+**Input:**
+```
+// Missing closing parenthesis
+strategy "Unbalanced Parens" {
+symbols: AAPL
+capital: $10000
+timeframe: daily
+period: "2023-01-01" to "2023-12-31"
+
+if (rsi < 30 and price < 150 {
+buy AAPL
+}
+}
+```
+
+**Output**
+![Unbalanced Parens](unbalanced.png)
+
+
+<hr>
+
+<h2>Team Members </h2>
+<p>Alex, Paul, Biyon (All work split evenly, worked on everything in group of three during weekday.)</p>
+
+<div class="team-member">
+    <strong>[Alex]:</strong> [Worked on grammar iterations, getting python working, debugging a lot.]
+</div>
+<div class="team-member">
+    <strong>[Paul]:</strong> [Worked on examples, grammar dates bug, main and translator classes.]
+</div>
+<div class="team-member">
+    <strong>[Biyon:</strong> [Worked on grammar, debugging, python portfolio and translator logic.]
+</div>
+
+<!-- Markdeep loader -->
+<style class="fallback">body{visibility:hidden}</style>
+<script src="https://casual-effects.com/markdeep/latest/markdeep.min.js?"></script>
+</body>
+</html>
