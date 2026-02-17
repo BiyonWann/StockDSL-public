@@ -1,0 +1,260 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║              STOCKDSL TESTING CHEAT SHEET                            ║
+║           Quick Commands to Test Everything                          ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+📁 SETUP (ONE-TIME ONLY)
+═══════════════════════════════════════════════════════════════════════
+
+Database Setup:
+  $ createdb stockdsl
+  $ psql stockdsl < fullstack-app/database/schema.sql
+  $ psql stockdsl -c "SELECT * FROM users;"  # Verify demo user exists
+
+Backend Setup:
+  $ cd fullstack-app/backend
+  $ mkdir -p src/main/resources/antlr4
+  $ cp ../../StockDSL.g4 src/main/resources/antlr4/
+  $ mkdir -p src/main/java/com/stockdsl/compiler
+  $ cp ../../src/Translator.java src/main/java/com/stockdsl/compiler/
+  # Edit Translator.java: Add "package com.stockdsl.compiler;" at top
+
+Python Setup:
+  $ pip3 install yahooquery pandas pandas_ta
+
+
+🚀 RUNNING THE APP
+═══════════════════════════════════════════════════════════════════════
+
+Terminal 1 - Backend:
+  $ cd fullstack-app/backend
+  $ mvn spring-boot:run
+  # Wait for: "StockDSL Backend Started!"
+
+Terminal 2 - Frontend:
+  $ cd fullstack-app/frontend
+  $ npm start
+  # Browser opens to http://localhost:3000
+
+Terminal 3 - Database Monitoring (optional):
+  $ watch -n 2 'psql stockdsl -c "SELECT COUNT(*) FROM strategies;"'
+
+
+🧪 TESTING WITH CURL
+═══════════════════════════════════════════════════════════════════════
+
+1. Login:
+   $ curl -X POST http://localhost:8080/api/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"demo_user","password":"password123"}'
+
+   # Copy the token from response!
+
+2. Get Strategies:
+   $ curl http://localhost:8080/api/strategies \
+     -H "Authorization: Bearer YOUR_TOKEN_HERE"
+
+3. Create Strategy:
+   $ curl -X POST http://localhost:8080/api/strategies \
+     -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "Test Strategy",
+       "dslCode": "strategy \"test\" { symbols: AAPL\n capital: $10000\n period: \"2023-01-01\" to \"2023-06-01\"\n if rsi < 30 { buy AAPL } }",
+       "description": "Testing via curl"
+     }'
+
+4. Run Backtest:
+   $ curl -X POST http://localhost:8080/api/backtests/run/1 \
+     -H "Authorization: Bearer YOUR_TOKEN_HERE"
+   # This takes 30-60 seconds!
+
+
+🔍 CHECKING DATABASE
+═══════════════════════════════════════════════════════════════════════
+
+View all tables:
+  $ psql stockdsl -c "\dt"
+
+Check users:
+  $ psql stockdsl -c "SELECT id, username, email FROM users;"
+
+Check strategies:
+  $ psql stockdsl -c "SELECT id, name, user_id, created_at FROM strategies;"
+
+Check backtests:
+  $ psql stockdsl -c "SELECT id, strategy_id, final_capital, profit_loss FROM backtests;"
+
+Check trades:
+  $ psql stockdsl -c "SELECT * FROM trades;"
+
+Join query (strategies with backtest results):
+  $ psql stockdsl -c "
+    SELECT s.name, b.final_capital, b.profit_loss
+    FROM strategies s
+    JOIN backtests b ON s.id = b.strategy_id;"
+
+
+🌐 BROWSER TESTING
+═══════════════════════════════════════════════════════════════════════
+
+1. Open http://localhost:3000
+2. Login: demo_user / password123
+3. Create new strategy
+4. Run backtest
+5. Open DevTools (F12):
+   - Network tab: See HTTP requests
+   - Console tab: See JavaScript logs
+
+
+🐛 DEBUGGING COMMANDS
+═══════════════════════════════════════════════════════════════════════
+
+Check if PostgreSQL is running:
+  $ pg_isready
+  $ brew services list | grep postgres  # macOS
+
+Check if backend is running:
+  $ curl http://localhost:8080/api/health
+  $ lsof -i :8080  # See what's using port 8080
+
+Check if frontend is running:
+  $ lsof -i :3000
+
+Kill processes:
+  $ lsof -ti:8080 | xargs kill -9  # Kill backend
+  $ lsof -ti:3000 | xargs kill -9  # Kill frontend
+
+Rebuild backend:
+  $ cd fullstack-app/backend
+  $ mvn clean install
+
+View backend logs:
+  $ cd fullstack-app/backend
+  $ mvn spring-boot:run | tee backend.log  # Save to file
+
+Test Python execution manually:
+  $ python3 -c "import yahooquery; print('OK')"
+
+
+📊 WATCHING DATA FLOW LIVE
+═══════════════════════════════════════════════════════════════════════
+
+Terminal 1 - Backend logs:
+  Watch for: INFO messages showing requests, compilation, execution
+
+Terminal 2 - Database watch:
+  $ watch -n 1 'psql stockdsl -c "SELECT COUNT(*) AS total FROM strategies;"'
+
+Terminal 3 - Another database watch:
+  $ watch -n 1 'psql stockdsl -c "SELECT COUNT(*) AS total FROM backtests;"'
+
+Browser - Network tab:
+  Open DevTools → Network → Filter: Fetch/XHR
+  Watch HTTP requests in real-time
+
+
+✅ SUCCESS CHECKLIST
+═══════════════════════════════════════════════════════════════════════
+
+[ ] Database exists: psql -l | grep stockdsl
+[ ] Tables created: psql stockdsl -c "\dt"
+[ ] Demo user exists: psql stockdsl -c "SELECT * FROM users;"
+[ ] Backend builds: mvn clean install
+[ ] Backend runs: mvn spring-boot:run (shows "Backend Started!")
+[ ] API responds: curl http://localhost:8080/api/strategies
+[ ] Can login: curl login endpoint returns token
+[ ] Frontend builds: npm install
+[ ] Frontend runs: npm start (browser opens)
+[ ] Can login in UI: demo_user / password123
+[ ] Can see strategies: Dashboard shows list
+[ ] Can create strategy: New strategy appears in database
+[ ] Can run backtest: Results appear after ~30-60s
+[ ] Results saved: psql shows new rows in backtests table
+
+
+🎯 COMMON TEST SCENARIOS
+═══════════════════════════════════════════════════════════════════════
+
+Scenario 1: Fresh Start
+  $ createdb stockdsl
+  $ psql stockdsl < fullstack-app/database/schema.sql
+  $ cd fullstack-app/backend && mvn spring-boot:run
+
+Scenario 2: Reset Database
+  $ dropdb stockdsl && createdb stockdsl
+  $ psql stockdsl < fullstack-app/database/schema.sql
+  $ # Restart backend
+
+Scenario 3: Test Backend Only
+  $ cd fullstack-app/backend && mvn spring-boot:run
+  $ curl http://localhost:8080/api/auth/login -X POST \
+    -H "Content-Type: application/json" \
+    -d '{"username":"demo_user","password":"password123"}'
+
+Scenario 4: Test Full Flow
+  # Terminal 1: Backend
+  $ cd fullstack-app/backend && mvn spring-boot:run
+
+  # Terminal 2: Frontend
+  $ cd fullstack-app/frontend && npm start
+
+  # Browser: Login, create strategy, run backtest
+
+  # Terminal 3: Watch database
+  $ watch psql stockdsl -c "SELECT * FROM backtests;"
+
+
+📝 SAMPLE DSL CODE FOR TESTING
+═══════════════════════════════════════════════════════════════════════
+
+Simple Test:
+  strategy "simple" {
+      symbols: AAPL
+      capital: $5000
+      period: "2023-01-01" to "2023-03-01"
+
+      if rsi < 30 {
+          buy AAPL
+      }
+  }
+
+Multi-Symbol Test:
+  strategy "multi" {
+      symbols: AAPL, MSFT, TSLA
+      capital: $10000
+      period: "2023-01-01" to "2023-06-01"
+
+      if rsi < 30 and sma(AAPL, 50) > sma(AAPL, 200) {
+          buy AAPL
+      }
+
+      if rsi > 70 {
+          sell AAPL
+      }
+  }
+
+
+🔗 USEFUL URLs
+═══════════════════════════════════════════════════════════════════════
+
+Backend API:     http://localhost:8080
+Frontend UI:     http://localhost:3000
+Database CLI:    psql stockdsl
+
+
+⚡ PERFORMANCE TESTING
+═══════════════════════════════════════════════════════════════════════
+
+Time each step:
+  $ time curl -X POST http://localhost:8080/api/auth/login ...
+  $ time curl -X POST http://localhost:8080/api/backtests/run/1 ...
+
+Watch Python execution time in backend logs:
+  "Python execution completed in 42.3 seconds"
+
+
+═══════════════════════════════════════════════════════════════════════
+For full testing guide, see: /TESTING_GUIDE.md
+For quick 10-min test, see: /QUICK_TEST.md
+═══════════════════════════════════════════════════════════════════════

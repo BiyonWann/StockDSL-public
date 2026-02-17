@@ -1,0 +1,327 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║                    STOCKDSL FULLSTACK PROJECT                        ║
+║                  Complete Trading Platform with DSL                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+📁 PROJECT STRUCTURE
+═══════════════════════════════════════════════════════════════════════
+
+fullstack-app/
+├── 📄 README.md                    ← Project overview
+├── 📄 QUICKSTART.md               ← Setup instructions
+├── 📄 UNDERGRADUATE_GUIDE.md      ← Deep technical explanations
+│
+├── 🗄️  database/
+│   └── schema.sql                 ← PostgreSQL tables & sample data
+│
+├── ☕ backend/                    ← Spring Boot (Java)
+│   ├── pom.xml                    ← Maven dependencies
+│   ├── SETUP.md                   ← Backend setup guide
+│   └── src/main/
+│       ├── java/com/stockdsl/
+│       │   ├── StockDslApplication.java      ← Main entry point
+│       │   ├── controller/                   ← REST API endpoints
+│       │   │   ├── AuthController.java
+│       │   │   ├── StrategyController.java
+│       │   │   └── BacktestController.java
+│       │   ├── service/                      ← Business logic
+│       │   │   ├── AuthService.java
+│       │   │   ├── StrategyService.java
+│       │   │   └── BacktestService.java
+│       │   ├── model/                        ← Database entities
+│       │   │   ├── User.java
+│       │   │   ├── Strategy.java
+│       │   │   ├── Backtest.java
+│       │   │   └── Trade.java
+│       │   ├── repository/                   ← Database queries
+│       │   │   ├── UserRepository.java
+│       │   │   ├── StrategyRepository.java
+│       │   │   ├── BacktestRepository.java
+│       │   │   └── TradeRepository.java
+│       │   ├── compiler/                     ← YOUR ANTLR CODE
+│       │   │   ├── Translator.java           ← Your translator!
+│       │   │   └── CompilerService.java      ← Wrapper service
+│       │   ├── security/                     ← JWT authentication
+│       │   │   ├── JwtUtil.java
+│       │   │   └── SecurityConfig.java
+│       │   └── config/                       ← Configuration
+│       │       └── CorsConfig.java
+│       └── resources/
+│           ├── application.properties        ← Database config
+│           └── antlr4/
+│               └── StockDSL.g4              ← Your grammar file
+│
+└── ⚛️  frontend/                  ← React (JavaScript)
+    ├── package.json               ← npm dependencies
+    ├── README.md                  ← Frontend guide
+    └── src/
+        ├── App.js                 ← Main component
+        ├── index.js               ← React entry point
+        ├── components/            ← Reusable UI components
+        │   ├── Navbar.js
+        │   ├── CodeEditor.js
+        │   ├── StrategyList.js
+        │   ├── BacktestResults.js
+        │   └── TradeHistory.js
+        ├── pages/                 ← Full pages
+        │   ├── Login.js
+        │   ├── Signup.js
+        │   ├── Dashboard.js
+        │   ├── StrategyEditor.js
+        │   └── BacktestHistory.js
+        ├── services/              ← API communication
+        │   ├── api.js
+        │   ├── authService.js
+        │   └── strategyService.js
+        └── styles/
+            └── App.css
+
+
+🔧 TECHNOLOGY STACK
+═══════════════════════════════════════════════════════════════════════
+
+Frontend:   React 18 + React Router + Axios + Monaco Editor
+Backend:    Spring Boot 3 + Spring Security + Spring Data JPA
+Database:   PostgreSQL 13+
+Compiler:   ANTLR 4.13.2 + Your Translator.java
+Execution:  Python 3.8+ (yahooquery, pandas, pandas_ta)
+Auth:       JWT (JSON Web Tokens)
+
+
+🎯 KEY FEATURES
+═══════════════════════════════════════════════════════════════════════
+
+✅ User authentication (signup/login with JWT)
+✅ Strategy management (create, edit, delete)
+✅ DSL code editor (Monaco - VS Code style)
+✅ DSL → Python compilation (ANTLR)
+✅ Backtest execution on real stock data
+✅ Results visualization (profit/loss, trades)
+✅ Trade history tracking
+✅ Multi-user support (each user sees only their data)
+✅ Persistent storage (PostgreSQL)
+
+
+🚀 HOW TO RUN
+═══════════════════════════════════════════════════════════════════════
+
+1. Setup Database
+   $ createdb stockdsl
+   $ psql stockdsl < database/schema.sql
+
+2. Start Backend (Terminal 1)
+   $ cd backend
+   $ mvn clean install
+   $ mvn spring-boot:run
+   → Runs on http://localhost:8080
+
+3. Start Frontend (Terminal 2)
+   $ cd frontend
+   $ npm install
+   $ npm start
+   → Opens http://localhost:3000
+
+4. Login
+   Username: demo_user
+   Password: password123
+
+
+📊 DATA FLOW (When User Runs Backtest)
+═══════════════════════════════════════════════════════════════════════
+
+1. User writes DSL in React editor:
+   strategy "my_strategy" {
+       symbols: AAPL
+       capital: $10000
+       if rsi < 30 { buy AAPL }
+   }
+
+2. User clicks "Run Backtest"
+   React → POST /api/backtests/run/42
+
+3. Spring Boot receives request
+   → Loads strategy from PostgreSQL
+   → Extracts DSL code
+
+4. CompilerService compiles DSL
+   → CharStreams.fromString(dslCode)
+   → StockDSLLexer tokenizes
+   → StockDSLParser builds tree
+   → YOUR Translator.java walks tree
+   → Generates Python code
+
+5. ProcessBuilder executes Python
+   → Downloads AAPL prices from Yahoo Finance
+   → Calculates RSI indicator
+   → Simulates trades day-by-day
+   → Returns results
+
+6. Spring Boot saves results
+   → Backtests table (summary)
+   → Trades table (individual trades)
+
+7. React displays results
+   Final Capital: $11,500
+   Profit: +$1,500 (15%)
+   Trades: [BOUGHT @ $150, SOLD @ $165]
+
+
+🗄️ DATABASE SCHEMA
+═══════════════════════════════════════════════════════════════════════
+
+users
+├── id (PK)
+├── username
+├── email
+└── password_hash
+
+strategies
+├── id (PK)
+├── user_id (FK → users.id)
+├── name
+├── dsl_code
+└── created_at
+
+backtests
+├── id (PK)
+├── strategy_id (FK → strategies.id)
+├── user_id (FK → users.id)
+├── final_capital
+├── profit_loss
+└── executed_at
+
+trades
+├── id (PK)
+├── backtest_id (FK → backtests.id)
+├── trade_date
+├── action (BUY/SELL)
+├── symbol
+└── price
+
+
+🔌 REST API ENDPOINTS
+═══════════════════════════════════════════════════════════════════════
+
+Authentication:
+  POST   /api/auth/signup      - Create account
+  POST   /api/auth/login       - Login (get JWT)
+
+Strategies:
+  GET    /api/strategies       - List all user's strategies
+  GET    /api/strategies/{id}  - Get specific strategy
+  POST   /api/strategies       - Create new strategy
+  PUT    /api/strategies/{id}  - Update strategy
+  DELETE /api/strategies/{id}  - Delete strategy
+
+Backtests:
+  POST   /api/backtests/run/{strategyId}  - Run backtest
+  GET    /api/backtests/strategy/{id}     - Get history
+  GET    /api/backtests/{id}              - Get specific backtest
+  GET    /api/backtests/{id}/trades       - Get trades
+
+
+💡 KEY CONCEPTS DEMONSTRATED
+═══════════════════════════════════════════════════════════════════════
+
+✓ Compiler Design (ANTLR grammar, lexer, parser, visitor pattern)
+✓ Fullstack Architecture (React + Spring Boot + PostgreSQL)
+✓ REST API Design (endpoints, JSON, status codes)
+✓ Database Modeling (entities, relationships, foreign keys)
+✓ Authentication (JWT tokens, password hashing)
+✓ MVC Pattern (Model-View-Controller separation)
+✓ ORM (JPA - Object-Relational Mapping)
+✓ Process Execution (Java → Python interop)
+✓ Frontend State Management (React hooks)
+✓ API Integration (Axios, HTTP requests)
+
+
+🎓 EXPLAINING THIS PROJECT
+═══════════════════════════════════════════════════════════════════════
+
+Elevator Pitch (30 seconds):
+"I built a web platform where users write trading strategies in a
+custom language I designed. The React frontend provides a code editor,
+Spring Boot backend uses ANTLR to compile the DSL to Python, which runs
+backtests on real stock data. Results are stored in PostgreSQL and
+displayed with charts."
+
+Technical Interview (2 minutes):
+"The system has three layers: React for UI, Spring Boot for API and
+business logic, PostgreSQL for persistence. The core is my ANTLR-based
+compiler that translates a domain-specific language to Python. Users
+write simple rules like 'if rsi < 30 buy AAPL' instead of complex
+Python. The backend executes generated Python via ProcessBuilder,
+parses results, saves to database, and returns JSON to the frontend.
+JWT handles authentication. This demonstrates compiler theory,
+fullstack development, and systems integration."
+
+
+📝 RESUME BULLET POINTS
+═══════════════════════════════════════════════════════════════════════
+
+• Designed a domain-specific language for algorithmic trading strategies
+  using ANTLR grammar and visitor parsing
+
+• Built a React frontend with Monaco editor for DSL code composition and
+  real-time backtest visualization
+
+• Developed Spring Boot REST API integrating ANTLR compiler, PostgreSQL
+  persistence, and Python execution engine
+
+• Implemented JWT authentication and multi-user support with role-based
+  data isolation
+
+• Deployed fullstack application connecting custom compiler to web
+  interface, processing real market data from Yahoo Finance API
+
+
+🐛 TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════
+
+Backend won't start:
+  → Run: mvn clean install
+
+Frontend shows "Network Error":
+  → Check backend is running on port 8080
+
+Database connection fails:
+  → Check PostgreSQL is running
+  → Verify credentials in application.properties
+
+Python imports fail:
+  → Run: pip3 install yahooquery pandas pandas_ta
+
+ANTLR files not generated:
+  → Ensure StockDSL.g4 is in src/main/resources/antlr4/
+  → Run: mvn clean install
+
+
+📚 NEXT STEPS
+═══════════════════════════════════════════════════════════════════════
+
+1. Add more technical indicators (MACD, Bollinger Bands)
+2. Implement async backtests with WebSocket progress updates
+3. Add data visualization (charts with recharts)
+4. Implement strategy sharing (public strategies)
+5. Add mobile responsive design
+6. Deploy to AWS (EC2 + RDS + S3)
+7. Containerize with Docker
+8. Add CI/CD pipeline (GitHub Actions)
+
+
+📖 DOCUMENTATION FILES
+═══════════════════════════════════════════════════════════════════════
+
+README.md              - Project overview and architecture
+QUICKSTART.md          - Step-by-step setup guide
+UNDERGRADUATE_GUIDE.md - Deep technical explanations
+backend/SETUP.md       - Backend-specific setup
+frontend/README.md     - Frontend-specific guide
+database/schema.sql    - Database schema with comments
+
+
+═══════════════════════════════════════════════════════════════════════
+Built by: Biyon Wanninayake
+Tech Stack: React • Spring Boot • PostgreSQL • ANTLR • Python
+Purpose: Fullstack learning + Resume project
+═══════════════════════════════════════════════════════════════════════
